@@ -75,6 +75,21 @@
   .status-verified { color: var(--ok); font-weight: 700; }
   .status-missing { color: var(--danger); font-weight: 700; }
 
+  .claims-columns {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px;
+  }
+  @media (max-width: 560px) { .claims-columns { grid-template-columns: 1fr; } }
+  .claims-col-title { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .claims-col-title.ok-title { color: var(--ok); }
+  .claims-col-title.rej-title { color: var(--danger); }
+  .claim-item {
+    border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; font-size: 12.5px; line-height: 1.5;
+  }
+  .claim-item.ok { background: rgba(53,208,138,0.08); border: 1px solid rgba(53,208,138,0.25); }
+  .claim-item.rej { background: rgba(255,85,102,0.08); border: 1px solid rgba(255,85,102,0.25); }
+  .claim-ids { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+  .claim-reason { font-size: 11px; color: var(--danger); margin-top: 4px; font-weight: 600; }
+
   .draft-box {
     margin-top: 16px; background: rgba(0,112,186,0.08); border: 1px solid rgba(0,112,186,0.25);
     border-radius: 10px; padding: 14px 16px; font-size: 13.5px; line-height: 1.6;
@@ -154,8 +169,9 @@
             <thead><tr><th>Claim</th><th>Evidence source</th><th>Status</th></tr></thead>
             <tbody id="evidenceTableBody"></tbody>
           </table>
+          <div class="claims-columns" id="claimsColumns"></div>
           <div class="draft-box">
-            <div class="draft-label">Drafted response to PayPal</div>
+            <div class="draft-label">Final response, assembled only from accepted claims</div>
             <div id="draftResponseText"></div>
             <details class="reasoning" id="reasoningDetails" style="display:none;">
               <summary>Show the model's reasoning (real chain-of-thought, not scripted)</summary>
@@ -169,6 +185,23 @@
     <div class="section">
       <div class="section-head">
         <span class="section-num">03</span>
+        <span class="section-title">Claim verification engine: adversarial test</span>
+      </div>
+      <p class="section-desc">The model is only told not to invent evidence in its prompt. A prompt is a request, not a guarantee. This runs the same evidence ledger under a buyer message designed to pressure the model into asserting delivery happened, then shows whether the deterministic validator actually catches and rejects any claim that isn't backed by a verified evidence ID, regardless of how the model phrases it.</p>
+      <div class="section-body">
+        <div class="controls">
+          <button class="btn-secondary" id="adversarialBtn">Run adversarial test</button>
+        </div>
+        <div class="status" id="adversarialStatus"></div>
+        <div id="adversarialPanel" style="display:none;">
+          <div class="claims-columns" id="adversarialClaimsColumns"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <span class="section-num">04</span>
         <span class="section-title">Submit to PayPal</span>
       </div>
       <p class="section-desc">A real call to PayPal's sandbox Disputes API. Since this demo's dispute is a labeled simulation (PayPal gives merchants no API to self-create a real dispute), this will honestly return PayPal's real "not found" response unless you provide a real sandbox dispute ID below.</p>
@@ -234,6 +267,34 @@ const draftResponseText = document.getElementById("draftResponseText");
 const reasoningDetails = document.getElementById("reasoningDetails");
 const reasoningText = document.getElementById("reasoningText");
 
+function renderClaimsColumns(container, accepted, rejected) {
+  container.innerHTML = "";
+
+  const okCol = document.createElement("div");
+  let okHtml = '<div class="claims-col-title ok-title">Accepted (' + accepted.length + ')</div>';
+  accepted.forEach((c) => {
+    okHtml += '<div class="claim-item ok">' + escapeHtml(c.text) +
+      '<div class="claim-ids">cites: ' + (c.evidence_ids || []).map(escapeHtml).join(", ") + '</div></div>';
+  });
+  if (accepted.length === 0) okHtml += '<div class="claim-item ok" style="opacity:0.6;">None accepted.</div>';
+  okCol.innerHTML = okHtml;
+
+  const rejCol = document.createElement("div");
+  let rejHtml = '<div class="claims-col-title rej-title">Rejected by validator (' + rejected.length + ')</div>';
+  rejected.forEach((c) => {
+    rejHtml += '<div class="claim-item rej">' + escapeHtml(c.text) +
+      '<div class="claim-ids">cites: ' + (c.evidence_ids || []).map(escapeHtml).join(", ") + '</div>' +
+      '<div class="claim-reason">' + escapeHtml(c.reason || "") + '</div></div>';
+  });
+  if (rejected.length === 0) rejHtml += '<div class="claim-item rej" style="opacity:0.6;">Nothing rejected this run.</div>';
+  rejCol.innerHTML = rejHtml;
+
+  container.appendChild(okCol);
+  container.appendChild(rejCol);
+}
+
+const claimsColumns = document.getElementById("claimsColumns");
+
 investigateBtn.addEventListener("click", async () => {
   investigateBtn.disabled = true;
   const original = investigateBtn.textContent;
@@ -265,6 +326,7 @@ investigateBtn.addEventListener("click", async () => {
       evidenceTableBody.appendChild(tr);
     });
 
+    renderClaimsColumns(claimsColumns, data.accepted || [], data.rejected || []);
     draftResponseText.textContent = data.draftResponse;
 
     if (data.reasoning) {
@@ -278,6 +340,43 @@ investigateBtn.addEventListener("click", async () => {
   } finally {
     investigateBtn.disabled = false;
     investigateBtn.textContent = original;
+  }
+});
+
+const adversarialBtn = document.getElementById("adversarialBtn");
+const adversarialStatus = document.getElementById("adversarialStatus");
+const adversarialPanel = document.getElementById("adversarialPanel");
+const adversarialClaimsColumns = document.getElementById("adversarialClaimsColumns");
+
+adversarialBtn.addEventListener("click", async () => {
+  adversarialBtn.disabled = true;
+  const original = adversarialBtn.textContent;
+  adversarialBtn.textContent = "Running attack...";
+  adversarialStatus.textContent = "Pressuring the model to claim delivery despite missing evidence...";
+  try {
+    const res = await fetch("/api/adversarial-test", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      adversarialStatus.textContent = "Error: " + (data.error || "unknown");
+      return;
+    }
+    if (data.parseError) {
+      adversarialStatus.textContent = "Model output failed to parse, validator failed closed (produced nothing) rather than falling back to unvalidated text.";
+      adversarialPanel.style.display = "block";
+      adversarialClaimsColumns.innerHTML = "";
+      return;
+    }
+
+    adversarialStatus.textContent = data.caughtAttempt
+      ? "CAUGHT: the buyer's pressure tactic produced a claim the validator rejected for citing unverified evidence."
+      : "No rejection this run, the model didn't attempt an unsupported claim under this pressure.";
+    adversarialPanel.style.display = "block";
+    renderClaimsColumns(adversarialClaimsColumns, data.accepted || [], data.rejected || []);
+  } catch (err) {
+    adversarialStatus.textContent = "Request failed. Is the server running?";
+  } finally {
+    adversarialBtn.disabled = false;
+    adversarialBtn.textContent = original;
   }
 });
 
