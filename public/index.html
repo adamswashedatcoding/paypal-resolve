@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PayPal Resolve</title>
+<style>
+  :root {
+    --bg: #05070d;
+    --panel: #0c1222;
+    --panel-soft: #0a0f1d;
+    --panel-border: #1b2440;
+    --text: #e8ecf8;
+    --muted: #7c89ad;
+    --accent: #0070ba;
+    --accent-glow: rgba(0, 112, 186, 0.35);
+    --ok: #35d08a;
+    --warn: #ffc832;
+    --danger: #ff5566;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px 60px; }
+  .top-bar {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 0; font-size: 11px; color: var(--muted);
+    letter-spacing: 0.04em; text-transform: uppercase;
+    border-bottom: 1px solid var(--panel-border); margin-bottom: 28px;
+  }
+  .top-bar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  header { text-align: center; margin-bottom: 32px; }
+  header h1 { font-size: 30px; margin: 0 0 8px; letter-spacing: -0.02em; font-weight: 800; }
+  header p { color: var(--muted); font-size: 14px; margin: 0 auto; max-width: 520px; line-height: 1.5; }
+  .badges { display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 5px 12px; border-radius: 100px; border: 1px solid var(--panel-border); color: var(--muted); background: var(--panel); }
+
+  .section { margin-bottom: 36px; }
+  .section-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .section-num {
+    font-size: 11px; font-weight: 700; color: var(--accent);
+    background: rgba(0,112,186,0.12); border: 1px solid rgba(0,112,186,0.3);
+    border-radius: 6px; padding: 2px 7px; letter-spacing: 0.04em;
+  }
+  .section-title { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .section-desc { font-size: 12.5px; color: var(--muted); margin: 4px 0 16px; line-height: 1.5; max-width: 560px; }
+  .section-body { background: var(--panel-soft); border: 1px solid var(--panel-border); border-radius: 16px; padding: 22px; }
+
+  button {
+    font-family: inherit; border: none; cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+  button:active { transform: scale(0.98); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary {
+    padding: 14px 28px; border-radius: 100px; background: var(--accent); color: white;
+    font-size: 14px; font-weight: 700; box-shadow: 0 8px 24px var(--accent-glow);
+  }
+  .btn-secondary {
+    padding: 12px 20px; border-radius: 100px; background: var(--panel);
+    border: 1px solid var(--panel-border); color: var(--text); font-size: 13px; font-weight: 600;
+  }
+  .controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
+
+  .status { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 18px; min-height: 18px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--panel-border); }
+  th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+  .status-verified { color: var(--ok); font-weight: 700; }
+  .status-missing { color: var(--danger); font-weight: 700; }
+
+  .draft-box {
+    margin-top: 16px; background: rgba(0,112,186,0.08); border: 1px solid rgba(0,112,186,0.25);
+    border-radius: 10px; padding: 14px 16px; font-size: 13.5px; line-height: 1.6;
+  }
+  .draft-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px; }
+
+  .reasoning { margin-top: 10px; }
+  .reasoning summary { font-size: 11px; color: #8fb8d9; cursor: pointer; list-style: none; }
+  .reasoning summary::-webkit-details-marker { display: none; }
+  .reasoning summary::before { content: "⚡ "; }
+  .reasoning-text {
+    margin-top: 6px; font-size: 12px; line-height: 1.5; color: var(--muted);
+    background: rgba(0,0,0,0.25); border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; max-height: 220px; overflow-y: auto;
+  }
+
+  .result-box {
+    margin-top: 16px; border-radius: 10px; padding: 14px 16px; font-size: 13px;
+  }
+  .result-ok { background: rgba(53,208,138,0.1); border: 1px solid rgba(53,208,138,0.3); }
+  .result-fail { background: rgba(255,200,50,0.1); border: 1px solid rgba(255,200,50,0.4); }
+  .result-json {
+    font-size: 11px; color: var(--muted); background: rgba(0,0,0,0.3);
+    border: 1px solid var(--panel-border); border-radius: 8px; padding: 10px;
+    margin-top: 8px; max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  }
+
+  .note-box {
+    font-size: 11.5px; color: var(--muted); background: rgba(0,0,0,0.2);
+    border: 1px solid var(--panel-border); border-radius: 8px; padding: 10px 12px; margin-top: 10px;
+  }
+
+  footer { text-align: center; margin-top: 10px; padding-top: 24px; border-top: 1px solid var(--panel-border); font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+  <div class="top-bar"><span class="dot"></span> paypal sandbox · nvidia nemotron via nebius · real API calls</div>
+  <div class="wrap">
+    <header>
+      <h1>PayPal Resolve</h1>
+      <p>An AI agent that investigates a PayPal dispute and proves every claim against a real source instead of guessing. If evidence is missing, it says so, it never invents proof.</p>
+      <div class="badges">
+        <span class="badge">Real PayPal sandbox API</span>
+        <span class="badge">NVIDIA Nemotron</span>
+        <span class="badge">Evidence integrity engine</span>
+      </div>
+    </header>
+
+    <div class="section">
+      <div class="section-head">
+        <span class="section-num">01</span>
+        <span class="section-title">Create a real transaction</span>
+      </div>
+      <p class="section-desc">A genuine order created through PayPal's sandbox Orders API. This becomes a real, verifiable evidence source for the dispute investigation below.</p>
+      <div class="section-body">
+        <div class="controls">
+          <button class="btn-secondary" id="createOrderBtn">Create real PayPal sandbox order</button>
+        </div>
+        <div class="status" id="orderStatus"></div>
+        <div class="result-json" id="orderResult" style="display:none;"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <span class="section-num">02</span>
+        <span class="section-title">Investigate the dispute</span>
+      </div>
+      <p class="section-desc">A buyer claims the order never arrived. The agent builds a claim-by-claim evidence table in deterministic code, not by asking the model to decide what's true, then drafts a response constrained to only the verified facts.</p>
+      <div class="section-body">
+        <div class="controls">
+          <button class="btn-primary" id="investigateBtn">Investigate dispute</button>
+        </div>
+        <div class="status" id="investigateStatus"></div>
+        <div id="investigatePanel" style="display:none;">
+          <table id="evidenceTable">
+            <thead><tr><th>Claim</th><th>Evidence source</th><th>Status</th></tr></thead>
+            <tbody id="evidenceTableBody"></tbody>
+          </table>
+          <div class="draft-box">
+            <div class="draft-label">Drafted response to PayPal</div>
+            <div id="draftResponseText"></div>
+            <details class="reasoning" id="reasoningDetails" style="display:none;">
+              <summary>Show the model's reasoning (real chain-of-thought, not scripted)</summary>
+              <div class="reasoning-text" id="reasoningText"></div>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <span class="section-num">03</span>
+        <span class="section-title">Submit to PayPal</span>
+      </div>
+      <p class="section-desc">A real call to PayPal's sandbox Disputes API. Since this demo's dispute is a labeled simulation (PayPal gives merchants no API to self-create a real dispute), this will honestly return PayPal's real "not found" response unless you provide a real sandbox dispute ID below.</p>
+      <div class="section-body">
+        <input id="realDisputeId" placeholder="Optional: paste a real sandbox dispute ID here" style="width:100%;padding:10px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--panel-border);color:var(--text);font-size:13px;margin-bottom:10px;" />
+        <div class="controls">
+          <button class="btn-secondary" id="submitEvidenceBtn">Submit evidence to PayPal (real API call)</button>
+        </div>
+        <div id="submitResult" style="display:none;"></div>
+        <div class="note-box">This calls the real PayPal sandbox Disputes API every time. A 404 against the simulated dispute ID is PayPal's genuine response, not an error in this app.</div>
+      </div>
+    </div>
+
+    <footer>Every evidence status here comes from a real lookup, not a model's guess. Missing is a real answer, not a failure to hide.</footer>
+  </div>
+
+<script>
+function escapeHtml(str) {
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+let lastRealOrderId = null;
+
+const createOrderBtn = document.getElementById("createOrderBtn");
+const orderStatus = document.getElementById("orderStatus");
+const orderResult = document.getElementById("orderResult");
+
+createOrderBtn.addEventListener("click", async () => {
+  createOrderBtn.disabled = true;
+  const original = createOrderBtn.textContent;
+  createOrderBtn.textContent = "Creating order...";
+  orderStatus.textContent = "Calling PayPal sandbox Orders API...";
+  try {
+    const res = await fetch("/api/paypal/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: "49.00", description: "Hairdresser appointment deposit" }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      orderStatus.textContent = "Error creating order.";
+      orderResult.style.display = "block";
+      orderResult.textContent = JSON.stringify(data, null, 2);
+      return;
+    }
+    lastRealOrderId = data.id;
+    orderStatus.textContent = "Real order created: " + data.id;
+    orderResult.style.display = "block";
+    orderResult.textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    orderStatus.textContent = "Request failed. Is the server running?";
+  } finally {
+    createOrderBtn.disabled = false;
+    createOrderBtn.textContent = original;
+  }
+});
+
+const investigateBtn = document.getElementById("investigateBtn");
+const investigateStatus = document.getElementById("investigateStatus");
+const investigatePanel = document.getElementById("investigatePanel");
+const evidenceTableBody = document.getElementById("evidenceTableBody");
+const draftResponseText = document.getElementById("draftResponseText");
+const reasoningDetails = document.getElementById("reasoningDetails");
+const reasoningText = document.getElementById("reasoningText");
+
+investigateBtn.addEventListener("click", async () => {
+  investigateBtn.disabled = true;
+  const original = investigateBtn.textContent;
+  investigateBtn.textContent = "Investigating...";
+  investigateStatus.textContent = "Agent is reconstructing the transaction and drafting a response...";
+  try {
+    const res = await fetch("/api/investigate-dispute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ realOrderId: lastRealOrderId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      investigateStatus.textContent = "Error: " + (data.error || "unknown");
+      return;
+    }
+
+    investigateStatus.textContent = "Dispute " + data.dispute.dispute_id + " (" + data.dispute.reason + "), simulated scenario, investigated.";
+    investigatePanel.style.display = "block";
+
+    evidenceTableBody.innerHTML = "";
+    data.evidenceTable.forEach((row) => {
+      const tr = document.createElement("tr");
+      const statusClass = row.status === "Verified" ? "status-verified" : "status-missing";
+      tr.innerHTML =
+        "<td>" + escapeHtml(row.claim) + "</td>" +
+        "<td>" + escapeHtml(row.evidenceSource) + "</td>" +
+        '<td class="' + statusClass + '">' + escapeHtml(row.status) + "</td>";
+      evidenceTableBody.appendChild(tr);
+    });
+
+    draftResponseText.textContent = data.draftResponse;
+
+    if (data.reasoning) {
+      reasoningDetails.style.display = "block";
+      reasoningText.textContent = data.reasoning.trim();
+    } else {
+      reasoningDetails.style.display = "none";
+    }
+  } catch (err) {
+    investigateStatus.textContent = "Request failed. Is the server running?";
+  } finally {
+    investigateBtn.disabled = false;
+    investigateBtn.textContent = original;
+  }
+});
+
+const submitEvidenceBtn = document.getElementById("submitEvidenceBtn");
+const submitResult = document.getElementById("submitResult");
+const realDisputeIdInput = document.getElementById("realDisputeId");
+
+submitEvidenceBtn.addEventListener("click", async () => {
+  submitEvidenceBtn.disabled = true;
+  const original = submitEvidenceBtn.textContent;
+  submitEvidenceBtn.textContent = "Calling PayPal...";
+  submitResult.style.display = "none";
+  try {
+    const disputeId = realDisputeIdInput.value.trim() || undefined;
+    const message = draftResponseText.textContent || "We have verified payment and shipment but cannot confirm delivery.";
+    const res = await fetch("/api/paypal/submit-evidence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ disputeId, message }),
+    });
+    const data = await res.json();
+    submitResult.style.display = "block";
+    submitResult.className = data.paypalStatus === 200 || data.paypalStatus === 201 ? "result-box result-ok" : "result-box result-fail";
+    submitResult.innerHTML =
+      "<strong>" + (data.note || "") + "</strong>" +
+      '<div class="result-json">' + escapeHtml(JSON.stringify(data, null, 2)) + "</div>";
+  } catch (err) {
+    submitResult.style.display = "block";
+    submitResult.className = "result-box result-fail";
+    submitResult.textContent = "Request failed. Is the server running?";
+  } finally {
+    submitEvidenceBtn.disabled = false;
+    submitEvidenceBtn.textContent = original;
+  }
+});
+
+(async function checkHealth() {
+  try {
+    const res = await fetch("/api/health");
+    const data = await res.json();
+    if (!data.nebiusKeyConfigured || !data.paypalConfigured) {
+      investigateStatus.textContent = "Server missing configuration, check .env.";
+    }
+  } catch (e) {
+    investigateStatus.textContent = "Backend not reachable yet.";
+  }
+})();
+</script>
+</body>
+</html>
