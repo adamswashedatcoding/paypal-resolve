@@ -207,10 +207,10 @@
   <div class="app-shell">
     <aside class="sidebar">
       <div class="sidebar-logo"><span class="mark">R</span> Resolve</div>
-      <a class="nav-item active" href="#transaction-card"><span class="nav-dot"></span>Overview</a>
-      <a class="nav-item" href="#investigate-card"><span class="nav-dot"></span>Disputes</a>
-      <a class="nav-item" href="#investigate-card"><span class="nav-dot"></span>Evidence</a>
-      <a class="nav-item" href="#submit-card"><span class="nav-dot"></span>Activity</a>
+      <a class="nav-item active" href="#transaction-card" data-target="transaction-card"><span class="nav-dot"></span>Overview</a>
+      <a class="nav-item" href="#investigate-card" data-target="investigate-card"><span class="nav-dot"></span>Disputes</a>
+      <a class="nav-item" href="#adversarial-card" data-target="adversarial-card"><span class="nav-dot"></span>Evidence</a>
+      <a class="nav-item" href="#submit-card" data-target="submit-card"><span class="nav-dot"></span>Activity</a>
     </aside>
 
     <div class="main">
@@ -527,6 +527,31 @@ const connLabel = document.getElementById("connLabel");
     investigateStatus.textContent = "Backend not reachable yet.";
   }
 })();
+
+// Sidebar scroll-spy: highlights the nav item for whichever card section is
+// actually in view, so the sidebar reflects scroll position instead of
+// staying frozen on "Overview."
+const navItems = Array.from(document.querySelectorAll(".nav-item"));
+const spySections = navItems
+  .map((item) => document.getElementById(item.getAttribute("data-target")))
+  .filter(Boolean);
+
+function setActiveNav(targetId) {
+  navItems.forEach((item) => {
+    item.classList.toggle("active", item.getAttribute("data-target") === targetId);
+  });
+}
+
+if ("IntersectionObserver" in window && spySections.length) {
+  const spyObserver = new IntersectionObserver(
+    (entries) => {
+      const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+      if (visible.length > 0) setActiveNav(visible[0].target.id);
+    },
+    { root: null, rootMargin: "-20% 0px -60% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] }
+  );
+  spySections.forEach((section) => spyObserver.observe(section));
+}
 </script>
 </body>
 </html>
